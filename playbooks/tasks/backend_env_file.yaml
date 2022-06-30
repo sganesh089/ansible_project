@@ -1,0 +1,14 @@
+- name: env file exists
+  file: 
+    path: /etc/todo.env
+    state: file
+- name: DB_NAME env file is up to date
+  lineinfile:
+    path: /etc/todo.env
+    line: DB_NAME=test
+    regexp: '^DB_NAME='    
+- name: DB_CONNECTION env file is up to date
+  lineinfile:
+    path: /etc/todo.env
+    line: DB_CONNECTION=mongodb://todo:todo@172.31.87.159:27017
+    regexp: '^DB_CONNECTION='   

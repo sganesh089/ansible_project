@@ -1,0 +1,99 @@
+- name: play db
+  hosts: db
+  become: true
+  tags:
+  - db_install
+  tasks: 
+  - name: install gnupg
+    package:
+      name: gnupg
+      state: present
+  # install mongo-db key
+  - name: install mongo-db key
+    apt_key:
+      url: https://www.mongodb.org/static/pgp/server-4.4.asc
+  - name: install mongo-db repo enabled
+    apt_repository:
+      repo: deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse
+      state: present
+      filename: mongodb
+  - name: install mongodb  
+    package:
+      name: mongodb-org
+      state: present
+  - name: mongodb is started
+    service:
+      name: mongod
+      state: started
+      enabled: yes    
+- name: play db
+  hosts: db
+  become: true
+  tags:
+  - db-config-admin
+  tasks:
+  - name: add user
+    command: "{{ item }}"
+    loop: 
+    - mongo admin --eval 'db.dropUser("{{ db_admin_user }}")'
+    - |
+      mongo admin --eval 'db.createUser( { user: "{{ db_admin_user }}" , pwd: "{{ db_admin_pass }}", roles: [ { role: "clusterAdmin", db: "admin" }, { role: "userAdminAnyDatabase", db: "admin" } ] } )'
+  - name: security is enabled
+    blockinfile:
+      path: /etc/mongod.conf
+      block: |
+        security:
+         authorization: "enabled"
+      state: present
+    notify: db is restarted
+  handlers:
+  - name: db is restarted
+    service:
+      name: mongod
+      state: restarted
+- name: rest of db config
+  hosts: db
+  become: true
+  tags:
+  - db-config
+  tasks:
+  - name: install pip
+    package:
+      name: python3-pip
+      state: latest
+  - name: pip mongodb install
+    pip:
+      name: pymongo
+      state: latest     
+  - name: todo db user exists
+    mongodb_user:
+      login_user: "{{ db_admin_user }}"
+      login_password: "{{ db_admin_pass }}"
+      database: admin
+      user: "{{ db_todo_user }}"
+      password: "{{ db_todo_pass }}"
+      state: present
+      roles:
+        - db: "{{ db_name_todo }}"
+          role: readWrite
+  - name: db network connectivity        
+    lineinfile:
+      path: /etc/mongod.conf
+      line: " bindIp: 0.0.0.0"
+      regexp: '^(.*)bindIp(.*)$'
+      state: present
+    notify: db is restarted
+  handlers:
+  - name: db is restarted
+    service:
+      name: mongod
+      state: restarted 
+
+
+
+
+      
+
+
+
+  
